@@ -117,4 +117,34 @@ public class Util {
             );
         }
     }
+
+    /**
+     * Runs the given body on a dedicated thread that has a large (8 MB) stack
+     * and returns whatever it threw. The test JVM may be run with a small stack
+     * (for example -Xss512k), so assertions about the default maximum nesting
+     * depth must not depend on the stack size of the calling thread.
+     * @param body the code to run
+     * @return the Throwable thrown by body, or null if it completed normally
+     */
+    public static Throwable throwableFromLargeStack(final Runnable body) {
+        final Throwable[] thrown = new Throwable[1];
+        Thread worker = new Thread(null, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    body.run();
+                } catch (Throwable t) {
+                    thrown[0] = t;
+                }
+            }
+        }, "large-stack-test", 8L * 1024 * 1024);
+        worker.start();
+        try {
+            worker.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for the large stack test thread", e);
+        }
+        return thrown[0];
+    }
 }
